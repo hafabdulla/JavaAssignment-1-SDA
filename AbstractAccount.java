@@ -1,0 +1,178 @@
+public abstract class AbstractAccount {
+	private final String accountNumber;
+	private double balance = 0;				//current balance
+	private final long creationTime;			//timestamp
+	private Customer customer;					//Owner
+	private static final int MaxTransactions = 1000;
+	
+//parallel arrays to store transaction details
+	private final String[] transactionType = new String[MaxTransactions];	//"Deposit", "Withdraw", "Fee", "Tax", "zakat"
+	private final double[] transactionAmount = new double[MaxTransactions];  //amount of each transaction
+	private final double[] balanceAfterTransaction = new double[MaxTransactions]; 	//balance after each transaction
+	private final long[] transactionTime = new long[MaxTransactions];	//timestamp of each transaction
+	private int transactionCount = 0;			//number of transactions
+	
+	//Constructor
+	protected AbstractAccount(String accNumber, double opBalance) {
+		if(accNumber == null || accNumber.isEmpty()) {
+			throw new IllegalArgumentException("Account number cannot be null or empty");
+		}
+		if(opBalance < 0) {
+			throw new IllegalArgumentException("Opening balance cannot be negative");
+		}
+		this.accountNumber = accNumber;
+		this.balance = opBalance;
+		this.creationTime = System.currentTimeMillis();
+		logTransaction("Open", opBalance, this.balance);
+	}
+	
+//Setter/Getters ============================
+	public String getAccountNumber() {
+		return accountNumber;
+	}
+	public double getBalance() {
+		return balance;
+	}
+	public long getCreationTime() {
+		return creationTime;
+	}
+	public Customer getCustomer() {
+		return customer;
+	}
+	public void setOwner(Customer customer) {
+		this.customer = customer;
+	}
+	
+// main functions ============================
+	//make deposit same for both types of accounts
+	public boolean makeDeposit(double amount) {
+		if(amount <= 0) {
+			System.out.println("Deposi amount is not correct");
+			return false;
+		}
+		this.balance += amount;
+		logTransaction("Deposit", amount, this.balance);
+		return true;
+	}
+	
+	//withdrawal is different for both types of accounts
+	public abstract boolean makeWithdrawal(double amount);
+	
+	public void checkBalance() {
+		System.out.println("-------------------------------");
+		System.out.println("Account: " + accountNumber + " (" + getAccountType() + ")");
+		if(customer != null) {
+			System.out.println("Owner: " + customer.getName());
+		}
+		System.out.println("Current Balance: " + balance);
+		System.out.println("-------------------------------");
+	}
+	
+	public final boolean transferAmount(AbstractAccount targetAccount, double amount) {
+		if(targetAccount == null) {
+			System.out.println("Target account is null");
+			return false;
+		}
+		if(amount <= 0) {
+			System.out.println("Transfer amount is not correct");
+			return false;
+		}
+		if(targetAccount == this) {
+			System.out.println("Cannot transfer to the same account");
+			return false;
+		}
+		boolean withdrawSuccess = this.makeWithdrawal(amount);
+		if(!withdrawSuccess) {
+			System.out.println("Transfer failed during withdrawal");
+			return false;
+		}
+		targetAccount.balance += amount;
+		targetAccount.logTransaction("Transfer In", amount, targetAccount.balance);
+		this.logTransaction("Transfer Out", amount, this.balance);
+		System.out.println("Transfer successful");
+		return true;		
+	}
+	
+	public double calculateZakat() {
+		return 0.0; // No zakat by default for non-saving accounts
+	}
+	
+    public void printStatement() {
+        System.out.println("============== Account Statement ==============");
+		System.out.println("Account Number: " + accountNumber + " (" + getAccountType() + ")");
+		if(customer != null) {
+			System.out.println("Owner: " + customer.getName());
+			System.out.println("Contact: " + customer.getPhone());
+			System.out.println("Address: " + customer.getAddress());
+		}
+		System.out.println("Creation Time: " + new java.util.Date(creationTime));
+		System.out.println("Current Balance: " + balance);
+		
+		if(transactionCount == 0) {
+			System.out.println("No transactions available.");
+			}
+		else {
+			for (int i = 0; i < transactionCount; i++) {
+			    System.out.println(
+			        (i+1) + ". " +
+			        transactionType[i] + " | Amount: " + transactionAmount[i] +
+			        " | Balance: " + balanceAfterTransaction[i] +
+			        " | Date: " + new java.util.Date(transactionTime[i])
+			    );
+			}
+		}
+		System.out.println("------------------------------------------------");
+	}
+    
+    
+    //Each account will show it's own deductions
+    public abstract void displayDeductions();
+    
+    
+//helper functions ============================
+    public abstract String getAccountType();
+    protected final void logFee(double amount, String label) {
+ 		if(amount > 0) {
+    		this.balance -= amount;
+    		logTransaction(label == null ? "FEE" : label, amount, balance);
+    	}
+    }
+    
+    protected final void credit(double amount, String label) {
+    	if(amount > 0) {
+    		balance += amount;
+    		logTransaction(label == null ? "CREDIT" : label, amount, balance);
+    	}
+    }
+    
+    protected final void debit(double amount, String label) {
+    	if(amount > 0) {
+    		balance -= amount;
+    		logTransaction(label == null ? "DEBIT" : label, amount, balance);
+    	}
+    }
+    
+    protected final boolean hasTransactionLimit() {
+    	return transactionCount < MaxTransactions;
+    }
+	
+    protected final void logTransaction(String type, double amount, double postBalance) {
+		if(!hasTransactionLimit()) {
+			System.out.println("Transaction limit reached, cannot do more transactions");
+			return;
+		}
+		
+		transactionType[transactionCount] = type;
+		transactionAmount[transactionCount] = amount;
+		balanceAfterTransaction[transactionCount] = postBalance;
+		transactionTime[transactionCount] = System.currentTimeMillis();
+		transactionCount++;
+	}
+    
+    protected static String formatMoney(double money) {
+    	long rounded = Math.round(money * 100);
+    	long whole = rounded / 100;
+    	long cents = Math.abs(rounded % 100);
+    	return whole + "." + (cents < 10 ? "0" + cents : String.valueOf(cents));
+    }
+}
